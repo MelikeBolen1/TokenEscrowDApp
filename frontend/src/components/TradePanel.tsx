@@ -10,136 +10,221 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Tabs,
-    Tab 
+    Switch,
+    FormControlLabel,
+    Collapse 
 } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers';
 import { toast } from 'react-toastify';
-import TradeHistory from './TradeHistory';
 
-interface TabPanelProps {
-    children?: React.ReactNode;
-    index: number;
-    value: number;
+interface TradeOffer {
+    id: string;
+    creator: string;
+    offeredTokens: Array<{ identifier: string; amount: string }>;
+    expectedTokens: Array<{ identifier: string; amount: string }>;
+    expirationTime: number;
+    oracleConditions?: Array<{
+        address: string;
+        dataKey: string;
+        expectedValue: string;
+    }>;
 }
-
-const TabPanel = (props: TabPanelProps) => {
-    const { children, value, index, ...other } = props;
-    return (
-        <div
-            role="tabpanel"
-            hidden={value !== index}
-            {...other}
-        >
-            {value === index && (
-                <Box sx={{ p: 3 }}>
-                    {children}
-                </Box>
-            )}
-        </div>
-    );
-};
 
 const TradePanel: React.FC<TradePanelProps> = ({
     address,
     trades,
-    transactions,
     onCreateTrade,
     onAcceptTrade,
     onCancelTrade
 }) => {
-    const [tabValue, setTabValue] = React.useState(0);
     const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+    const [useOracle, setUseOracle] = React.useState(false);
     const [newTrade, setNewTrade] = React.useState({
-        token: '',
-        amount: '',
-        expectedToken: '',
-        expectedAmount: ''
+        offeredTokens: [{ identifier: '', amount: '' }],
+        expectedTokens: [{ identifier: '', amount: '' }],
+        expirationTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+        oracleAddress: '',
+        oracleDataKey: '',
+        oracleExpectedValue: ''
     });
-
-    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-        setTabValue(newValue);
-    };
 
     const handleCreateTrade = async () => {
         try {
-            await onCreateTrade(newTrade);
-            setIsDialogOpen(false);
-            setNewTrade({
-                token: '',
-                amount: '',
-                expectedToken: '',
-                expectedAmount: ''
+            const oracleConditions = useOracle ? [{
+                address: newTrade.oracleAddress,
+                dataKey: newTrade.oracleDataKey,
+                expectedValue: newTrade.oracleExpectedValue
+            }] : undefined;
+
+            await onCreateTrade({
+                ...newTrade,
+                expirationTime: Math.floor(newTrade.expirationTime.getTime() / 1000),
+                oracleConditions
             });
+            
+            setIsDialogOpen(false);
             toast.success('Trade created successfully!');
         } catch (error) {
             toast.error('Failed to create trade');
         }
     };
 
+    const addToken = (type: 'offered' | 'expected') => {
+        setNewTrade(prev => ({
+            ...prev,
+            [`${type}Tokens`]: [
+                ...prev[`${type}Tokens`],
+                { identifier: '', amount: '' }
+            ]
+        }));
+    };
+
     return (
         <Box sx={{ mt: 4 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={handleTabChange}>
-                    <Tab label="Active Trades" />
-                    <Tab label="Transaction History" />
-                </Tabs>
-            </Box>
+            <Button
+                variant="contained"
+                onClick={() => setIsDialogOpen(true)}
+            >
+                Create New Trade
+            </Button>
 
-            <TabPanel value={tabValue} index={0}>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => setIsDialogOpen(true)}
-                    sx={{ mb: 2 }}
-                >
-                    Create New Trade
-                </Button>
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+                {trades.map((trade) => (
+                    <Grid item xs={12} sm={6} md={4} key={trade.id}>
+                        <Card sx={{ p: 2 }}>
+                            <Typography variant="subtitle1">
+                                Offering:
+                            </Typography>
+                            {trade.offeredTokens.map((token, idx) => (
+                                <Typography key={idx}>
+                                    {token.amount} {token.identifier}
+                                </Typography>
+                            ))}
+                            
+                            <Typography variant="subtitle1" sx={{ mt: 1 }}>
+                                Expecting:
+                            </Typography>
+                            {trade.expectedTokens.map((token, idx) => (
+                                <Typography key={idx}>
+                                    {token.amount} {token.identifier}
+                                </Typography>
+                            ))}
 
-                <Grid container spacing={2}>
-                    {trades.map((trade) => (
-                        <Grid item xs={12} sm={6} md={4} key={trade.id}>
-                            <Card sx={{ p: 2 }}>
-                                <Typography variant="subtitle1">
-                                    Offering: {trade.amount} {trade.token}
-                                </Typography>
-                                <Typography variant="subtitle1">
-                                    Expecting: {trade.expectedAmount} {trade.expectedToken}
-                                </Typography>
-                                <Typography variant="body2" color="textSecondary">
-                                    Creator: {trade.creator}
-                                </Typography>
-                                
-                                {trade.creator === address ? (
-                                    <Button
-                                        variant="outlined"
-                                        color="secondary"
-                                        onClick={() => onCancelTrade(trade.id)}
-                                        sx={{ mt: 1 }}
-                                    >
-                                        Cancel Trade
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={() => onAcceptTrade(trade.id)}
-                                        sx={{ mt: 1 }}
-                                    >
-                                        Accept Trade
-                                    </Button>
-                                )}
-                            </Card>
-                        </Grid>
-                    ))}
-                </Grid>
-            </TabPanel>
+                            <Typography variant="body2" color="textSecondary">
+                                Expires: {new Date(trade.expirationTime * 1000).toLocaleString()}
+                            </Typography>
 
-            <TabPanel value={tabValue} index={1}>
-                <TradeHistory transactions={transactions} />
-            </TabPanel>
+                            {trade.oracleConditions && (
+                                <Typography variant="body2" color="info">
+                                    Has Oracle Conditions
+                                </Typography>
+                            )}
+
+                            {trade.creator === address ? (
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    onClick={() => onCancelTrade(trade.id)}
+                                    sx={{ mt: 1 }}
+                                >
+                                    Cancel Trade
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => onAcceptTrade(trade.id)}
+                                    sx={{ mt: 1 }}
+                                >
+                                    Accept Trade
+                                </Button>
+                            )}
+                        </Card>
+                    </Grid>
+                ))}
+            </Grid>
 
             <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
-                {/* Dialog content remains the same */}
+                <DialogTitle>Create New Trade</DialogTitle>
+                <DialogContent>
+                    {/* Offered Tokens */}
+                    {newTrade.offeredTokens.map((token, idx) => (
+                        <Box key={idx} sx={{ mb: 2 }}>
+                            <Typography>Offered Token {idx + 1}</Typography>
+                            <TextField
+                                label="Token Identifier"
+                                value={token.identifier}
+                                onChange={(e) => {/* Update token */}}
+                                fullWidth
+                                margin="dense"
+                            />
+                            <TextField
+                                label="Amount"
+                                value={token.amount}
+                                onChange={(e) => {/* Update amount */}}
+                                fullWidth
+                                margin="dense"
+                            />
+                        </Box>
+                    ))}
+                    <Button onClick={() => addToken('offered')}>
+                        Add Offered Token
+                    </Button>
+
+                    {/* Expected Tokens */}
+                    {/* Similar structure for expected tokens */}
+
+                    <DateTimePicker
+                        label="Expiration Time"
+                        value={newTrade.expirationTime}
+                        onChange={(newValue) => {
+                            setNewTrade(prev => ({
+                                ...prev,
+                                expirationTime: newValue || new Date()
+                            }));
+                        }}
+                    />
+
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={useOracle}
+                                onChange={(e) => setUseOracle(e.target.checked)}
+                            />
+                        }
+                        label="Use Oracle Conditions"
+                    />
+
+                    <Collapse in={useOracle}>
+                        <TextField
+                            label="Oracle Address"
+                            value={newTrade.oracleAddress}
+                            onChange={(e) => {/* Update oracle address */}}
+                            fullWidth
+                            margin="dense"
+                        />
+                        <TextField
+                            label="Data Key"
+                            value={newTrade.oracleDataKey}
+                            onChange={(e) => {/* Update data key */}}
+                            fullWidth
+                            margin="dense"
+                        />
+                        <TextField
+                            label="Expected Value"
+                            value={newTrade.oracleExpectedValue}
+                            onChange={(e) => {/* Update expected value */}}
+                            fullWidth
+                            margin="dense"
+                        />
+                    </Collapse>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleCreateTrade} variant="contained">
+                        Create Trade
+                    </Button>
+                </DialogActions>
             </Dialog>
         </Box>
     );
