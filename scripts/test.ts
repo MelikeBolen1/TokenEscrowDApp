@@ -18,18 +18,21 @@ async function runTests() {
   try {
     console.log('Starting integration tests...');
 
-    // Test hesaplarını hazırla
+    // Prepare test accounts
+
     const alice = await setupTestAccount('alice.pem');
     const bob = await setupTestAccount('bob.pem');
 
-    // Contract service'i başlat
+    // Contract service startup
+
     const service = new ContractService(
       TESTNET_GATEWAY,
       config.staking,
       config.escrow
     );
 
-    // Test senaryolarını çalıştır
+    //Run test cases
+
     await testStaking(service, alice);
     await testEscrow(service, alice, bob);
 
@@ -43,20 +46,24 @@ async function runTests() {
 async function testStaking(service: ContractService, account: TestAccount) {
   console.log('\nTesting Staking functionality...');
 
-  // Stake işlemini test et
+  //Test staking
+
   console.log('Testing stake...');
   await service.stake('1000000000000000000'); // 1 EGLD
   let position = await service.getStakingPosition(account.address);
   assert(position.stakedAmount === '1000000000000000000', 'Stake amount mismatch');
 
-  // 24 saat bekle (test için simüle et)
+  // Wait 24 hours (simulate for testing)
+
   await simulateTimePass(24 * 60 * 60);
 
-  // Ödülleri kontrol et
+  // Check rewards
+
   position = await service.getStakingPosition(account.address);
   assert(Number(position.rewards) > 0, 'No rewards accumulated');
 
-  // Unstake işlemini test et
+  // Test unstake
+
   console.log('Testing unstake...');
   await service.requestUnstake('500000000000000000'); // 0.5 EGLD
   position = await service.getStakingPosition(account.address);
@@ -72,7 +79,8 @@ async function testEscrow(
 ) {
   console.log('\nTesting Escrow functionality...');
 
-  // Teklif oluşturmayı test et
+  // Test quote creation
+
   console.log('Testing offer creation...');
   const offer = {
     token: 'EGLD',
@@ -89,7 +97,8 @@ async function testEscrow(
   );
   assert(createdOffer, 'Offer not created');
 
-  // Teklif kabulünü test et
+  // Test offer acceptance
+
   console.log('Testing offer acceptance...');
   await service.acceptTrade(createdOffer.id);
   const updatedTrades = await service.getTrades();
