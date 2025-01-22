@@ -17,10 +17,12 @@ const CHAIN_ID = 'T';
 
 async function deploy() {
   try {
-    // Ağ sağlayıcısını başlat
+    // Start network provider
+
     const provider = new ProxyNetworkProvider(TESTNET_GATEWAY);
 
-    // Deployer hesabını yükle
+    // Install deployer account
+
     const privateKey = UserSecretKey.fromPem(
       readFileSync('testnet.pem').toString()
     );
@@ -29,7 +31,8 @@ async function deploy() {
     const accountOnNetwork = await provider.getAccount(address);
     account.update(accountOnNetwork);
 
-    // ABI dosyalarını yükle
+    // Upload ABI files
+
     const escrowAbi = readFileSync(
       path.join(__dirname, '../contracts/output/escrow.abi.json')
     ).toString();
@@ -37,7 +40,8 @@ async function deploy() {
       path.join(__dirname, '../contracts/output/staking.abi.json')
     ).toString();
 
-    // Kontratları dağıt
+    // Distribute contracts
+
     console.log('Deploying Escrow contract...');
     const escrowContract = await deployContract(
       'escrow.wasm',
@@ -58,7 +62,8 @@ async function deploy() {
     );
     console.log('Staking contract deployed at:', stakingContract.getAddress().bech32());
 
-    // Kontrat adreslerini kaydet
+    // Save contract addresses
+
     saveContractAddresses({
       escrow: escrowContract.getAddress().bech32(),
       staking: stakingContract.getAddress().bech32()
@@ -77,16 +82,20 @@ async function deployContract(
   account: Account,
   privateKey: UserSecretKey
 ): Promise<SmartContract> {
-  // ABI'yi yükle
+  
+  // Install ABI
+
   const abiRegistry = AbiRegistry.create(JSON.parse(abiFile));
   const abi = new SmartContractAbi(abiRegistry);
 
-  // WASM dosyasını yükle
+  //Load WASM file
+
   const code = readFileSync(
     path.join(__dirname, `../contracts/output/${wasmFile}`)
   );
 
-  // Deploy transaction'ı oluştur
+  // Create deployment transaction
+
   const contract = new SmartContract({});
   const deployTransaction = new SmartContractDeploy({
     code: code,
@@ -96,15 +105,18 @@ async function deployContract(
     value: 0
   });
 
-  // Transaction'ı imzala ve gönder
+  // Sign and send transaction
+
   deployTransaction.setNonce(account.getNonceThenIncrement());
   const signature = await privateKey.sign(deployTransaction.serializeForSigning());
   deployTransaction.applySignature(signature);
 
-  // Deploy işlemini gerçekleştir
+  // Perform the deployment
+
   await provider.sendTransaction(deployTransaction);
   
-  // Transaction'ın tamamlanmasını bekle
+  // Wait for transaction to complete
+
   await new Promise(resolve => setTimeout(resolve, 6000));
   
   return contract;
@@ -115,7 +127,8 @@ function saveContractAddresses(addresses: { escrow: string, staking: string }) {
     testnet: addresses
   };
   
-  // Config dosyasını kaydet
+  //Save config file
+
   const configPath = path.join(__dirname, '../config.json');
   writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
