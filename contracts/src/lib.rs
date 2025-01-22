@@ -163,7 +163,8 @@ pub trait TokenEscrow {
             "Only creator can cancel offer"
         );
         
-        // İade işlemi
+        // Return process
+
         for token in offer.offered_tokens.iter() {
             self.send().direct_esdt(
                 &offer.creator,
@@ -199,14 +200,16 @@ pub trait TokenEscrow {
             "Offer has expired"
         );
 
-        // Oracle koşullarını kontrol et
+        //Check Oracle conditions
+
         if let Some(conditions) = &offer.oracle_conditions {
             for condition in conditions.iter() {
                 self.check_oracle_condition(&condition);
             }
         }
 
-        // Token transferleri
+        // Token transfers
+
         for token in offer.offered_tokens.iter() {
             self.send().direct_esdt(
                 &offer.recipient,
@@ -230,7 +233,8 @@ pub trait TokenEscrow {
         self.emit_offer_completed_event(&offer);
     }
 
-    // Oracle koşulunu kontrol et
+    // Check Oracle condition
+
     fn check_oracle_condition(&self, condition: &OracleCondition<Self::Api>) {
         let result = self.blockchain().execute_on_dest_context_raw(
             &condition.oracle_address,
@@ -245,7 +249,8 @@ pub trait TokenEscrow {
         );
     }
 
-    // Süresi dolmuş teklifleri temizle
+    // Clear expired offers
+
     #[endpoint]
     fn cleanup_expired_offers(&self) {
         let current_timestamp = self.blockchain().get_block_timestamp();
@@ -258,7 +263,8 @@ pub trait TokenEscrow {
                offer.expiration_timestamp < current_timestamp {
                 offer.status = OfferStatus::Expired;
                 
-                // Tokenları iade et
+                // Return tokens
+
                 for token in offer.offered_tokens.iter() {
                     self.send().direct_esdt(
                         &offer.creator,
@@ -276,7 +282,8 @@ pub trait TokenEscrow {
         }
     }
 
-    // Yardımcı fonksiyonlar
+    // Auxiliary functions
+
     fn get_offer_index_by_id(&self, offer_id: u64) -> usize {
         for (index, offer) in self.offers().iter().enumerate() {
             if offer.offer_id == offer_id {
@@ -286,7 +293,8 @@ pub trait TokenEscrow {
         sc_panic!("Offer not found");
     }
 
-    // Sadece owner için fonksiyonlar
+    // Functions for owner only
+
     #[only_owner]
     #[endpoint(setFeePercentage)]
     fn set_fee_percentage(&self, new_percentage: BigUint) {
@@ -297,7 +305,8 @@ pub trait TokenEscrow {
         self.platform_fee_percentage().set(&new_percentage);
     }
 
-    // Görüntüleme fonksiyonları
+    // Display functions
+
     #[view(getOfferById)]
     fn get_offer_by_id(&self, offer_id: u64) -> Option<Offer<Self::Api>> {
         for offer in self.offers().iter() {
@@ -320,7 +329,8 @@ pub trait TokenEscrow {
         result
     }
 
-    // Event'ler
+    // events
+
     #[event("offerCreated")]
     fn emit_offer_created_event(&self, offer: &Offer<Self::Api>);
 
