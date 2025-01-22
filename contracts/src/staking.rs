@@ -16,12 +16,13 @@ pub struct StakePosition<M: ManagedTypeApi> {
 pub trait StakingContract {
     #[init]
     fn init(&self) {
-        self.reward_rate().set(&BigUint::from(5u64)); // %5 yıllık ödül oranı
+        self.reward_rate().set(&BigUint::from(5u64)); // 5% annual reward rate
+
         self.minimum_stake_amount().set(&BigUint::from(1000000000000000000u64)); // 1 EGLD
-        self.unstake_period().set(&(7 * 24 * 60 * 60)); // 7 gün
+        self.unstake_period().set(&(7 * 24 * 60 * 60)); // 7 day
     }
 
-    // EGLD stake etme
+    // EGLD staking
     #[payable("EGLD")]
     #[endpoint]
     fn stake(&self) {
@@ -34,9 +35,11 @@ pub trait StakingContract {
             "Stake amount below minimum"
         );
 
-        // Mevcut stake pozisyonunu kontrol et
+        // Check current stake position
+
         if self.stake_positions(caller.clone()).is_empty() {
-            // Yeni stake pozisyonu oluştur
+            // Create new staking position
+
             let position = StakePosition {
                 address: caller.clone(),
                 staked_amount: payment,
@@ -46,25 +49,30 @@ pub trait StakingContract {
             };
             self.stake_positions(caller).set(&position);
         } else {
-            // Mevcut pozisyonu güncelle
+            // Update current position
+
             let mut position = self.stake_positions(caller.clone()).get();
             
-            // Önce ödülleri hesapla
+            // Calculate rewards first
+
             let rewards = self.calculate_rewards(&position);
             position.rewards += rewards;
             
-            // Yeni stake miktarını ekle
+            // Add new stake amount
+
             position.staked_amount += payment;
             position.last_stake_timestamp = current_timestamp;
             
             self.stake_positions(caller).set(&position);
         }
 
-        // Stake event'ini tetikle
+        // Triggering the stake event
+
         self.emit_stake_event(&caller, &payment);
     }
 
-    // EGLD unstake başlatma
+    // EGLD unstake initiation
+
     #[endpoint]
     fn request_unstake(&self, amount: BigUint) {
         let caller = self.blockchain().get_caller();
@@ -79,21 +87,25 @@ pub trait StakingContract {
             "Unstake amount exceeds staked amount"
         );
 
-        // Ödülleri hesapla
+        // Calculate rewards
+
         let rewards = self.calculate_rewards(&position);
         position.rewards += rewards;
         
-        // Unstake zamanını ayarla
+        // Set unstake time
+
         position.unstake_timestamp = self.blockchain().get_block_timestamp();
         position.staked_amount -= &amount;
         
         self.stake_positions(caller.clone()).set(&position);
         
-        // Unstake request event'ini tetikle
+        // Triggering the unstake request event
+
         self.emit_unstake_request_event(&caller, &amount);
     }
 
-    // EGLD unstake tamamlama
+    // EGLD unstake completion
+
     #[endpoint]
     fn complete_unstake(&self) {
         let caller = self.blockchain().get_caller();
@@ -114,20 +126,24 @@ pub trait StakingContract {
             "Unstake period not completed"
         );
 
-        // EGLD'yi geri gönder
+        // Send back EGLD
+
         self.send().direct_egld(
             &caller,
             &position.staked_amount,
         );
 
-        // Pozisyonu sil
+        //Delete position
+
         self.stake_positions(caller.clone()).clear();
         
-        // Unstake complete event'ini tetikle
+        // Triggering the unstake complete event
+
         self.emit_unstake_complete_event(&caller, &position.staked_amount);
     }
 
-    // Ödülleri talep etme
+    // Claim rewards
+
     #[endpoint]
     fn claim_rewards(&self) {
         let caller = self.blockchain().get_caller();
@@ -138,7 +154,8 @@ pub trait StakingContract {
 
         let mut position = self.stake_positions(caller.clone()).get();
         
-        // Ödülleri hesapla
+        // Calculate rewards
+
         let rewards = self.calculate_rewards(&position);
         position.rewards += rewards;
         
@@ -147,23 +164,27 @@ pub trait StakingContract {
             "No rewards to claim"
         );
 
-        // Ödülleri gönder
+        // Submit rewards
+
         self.send().direct_egld(
             &caller,
             &position.rewards,
         );
 
-        // Ödülleri sıfırla
+        // Reset rewards
+
         position.rewards = BigUint::zero();
         position.last_stake_timestamp = self.blockchain().get_block_timestamp();
         
         self.stake_positions(caller.clone()).set(&position);
         
-        // Claim rewards event'ini tetikle
+        // Triggering the Claim rewards event
+
         self.emit_claim_rewards_event(&caller, &rewards);
     }
 
-    // Görüntüleme fonksiyonları
+    // Display functions
+
     #[view(getStakePosition)]
     fn get_stake_position(&self, address: ManagedAddress) -> Option<StakePosition<Self::Api>> {
         if self.stake_positions(address.clone()).is_empty() {
@@ -173,12 +194,14 @@ pub trait StakingContract {
         }
     }
 
-    // Yardımcı fonksiyonlar
+    // Auxiliary functions
+
     fn calculate_rewards(&self, position: &StakePosition<Self::Api>) -> BigUint {
         let current_timestamp = self.blockchain().get_block_timestamp();
         let time_staked = current_timestamp - position.last_stake_timestamp;
         
-        // Yıllık ödül oranını günlük bazda hesapla
+        // Calculate annual reward rate on daily basis
+
         let daily_rate = self.reward_rate().get() / BigUint::from(365u64);
         let reward = &position.staked_amount * daily_rate * BigUint::from(time_staked) 
             / BigUint::from(24u64 * 60u64 * 60u64 * 100u64);
@@ -186,7 +209,7 @@ pub trait StakingContract {
         reward
     }
 
-    // Event'ler
+    // Events
     #[event("stake")]
     fn emit_stake_event(&self, address: &ManagedAddress, amount: &BigUint);
 
