@@ -1,0 +1,23 @@
+mkdir token-escrow-dapp
+cd token-escrow-dapp
+mkdir contracts
+mkdir frontend
+mkdir scripts
+touch README.md
+cd frontend
+npm init vite@latest . -- --template react-ts
+npm install @multiversx/sdk-core @multiversx/sdk-web-wallet @multiversx/sdk-network-providers
+npm install @mui/material @emotion/react @emotion/styled
+npm install react-toastify
+npm init -y
+npm install --save react react-dom @types/react @types/react-dom
+npm install --save-dev @types/node typescript vite @vitejs/plugin-react
+npm install --save-dev @typescript-eslint/parser @typescript-eslint/eslint-plugin
+npm install @types/react @types/react-dom
+npm install --save-dev @types/vite
+cd contracts
+mxpy contract build
+cd ..
+npm run deploy 
+cd frontend
+npm run dev 
