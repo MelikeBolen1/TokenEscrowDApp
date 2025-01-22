@@ -50,5 +50,6 @@ export class ContractService {
     await this.wallet.signAndSendTransaction(tx);
   }
 
-  // Diğer kontrat etkileşim metodları buraya eklenecek...
+  // Other contract interaction methods will be added here...
+
 } 
