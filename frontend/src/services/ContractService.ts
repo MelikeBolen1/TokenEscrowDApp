@@ -1,6 +1,7 @@
 import { ProxyNetworkProvider } from '@multiversx/sdk-network-providers';
 import { ExtensionProvider } from '@multiversx/sdk-web-wallet';
 import { Address, BigUIntValue, ContractFunction, Transaction } from '@multiversx/sdk-core';
+import { Buffer } from 'buffer';
 
 export class ContractService {
     private provider: ProxyNetworkProvider;
